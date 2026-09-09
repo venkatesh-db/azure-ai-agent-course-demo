@@ -1,0 +1,75 @@
+# Module 4 / Lab 13: Deployment and CI/CD governance — reference pipeline.
+#
+# NOT executed in this demo (no Azure DevOps project wired up for this
+# session). This is teaching material for the syllabus's Lab 13 checklist:
+# automated tests -> evaluation as a release gate -> canary -> smoke test
+# -> rollback path. The quality-gate thresholds mirror the syllabus's own
+# "Release quality gates" table.
+#
+# To use for real: create an Azure DevOps pipeline, point it at this repo,
+# and replace the placeholder steps with real commands (the eval script
+# already exists and runs: day3/lab2_evaluation.py).
+
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include: [day1/*, day2/*, day3/*]
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Test
+    jobs:
+      - job: UnitAndIntegrationTests
+        steps:
+          - script: pip install -r day1/requirements.txt -r day2/requirements.txt -r day3/requirements.txt
+            displayName: "Install dependencies"
+          - script: python3 day2/lab9_approval_workflow.py
+            displayName: "Workflow + approval scenario tests (deterministic, no LLM)"
+          - script: python3 day3/lab3_resilience.py
+            displayName: "Resilience scenario tests (deterministic, no LLM)"
+
+  - stage: EvaluationGate
+    dependsOn: Test
+    jobs:
+      - job: RunEvaluationSuite
+        steps:
+          - script: python3 day3/lab2_evaluation.py
+            displayName: "Run 25-case evaluation dataset"
+          - script: python3 day3/check_release_gate.py
+            displayName: "Enforce release thresholds (fails the build if not met)"
+            # Thresholds (from the syllabus's Day 3 Module 2 table):
+            #   classification_accuracy   >= 90%
+            #   retrieval_relevance       >= 85%
+            #   grounded_response_rate    >= 90%
+            #   citation_correctness      >= 90%
+            #   correct_tool_selection    >= 95%
+            #   schema_valid_output       >= 99%
+            #   unauthorized_action_rate  == 0%
+            #   approval_bypass_rate      == 0%
+
+  - stage: CanaryDeploy
+    dependsOn: EvaluationGate
+    jobs:
+      - deployment: DeployCanary
+        environment: "agent-demo-canary"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: echo "az cognitiveservices account deployment create ... (canary traffic split)"
+                  displayName: "Deploy new agent instructions/tools to a canary slot"
+                - script: echo "run smoke tests against canary endpoint"
+                  displayName: "Smoke test canary"
+                - script: echo "monitor canary error rate / latency for N minutes before promoting"
+                  displayName: "Canary bake time"
+
+  - stage: PromoteOrRollback
+    dependsOn: CanaryDeploy
+    jobs:
+      - job: PromoteIfHealthy
+        steps:
+          - script: echo "promote canary to 100% traffic, OR roll back to previous agent-instructions version"
+            displayName: "Promote / rollback decision"

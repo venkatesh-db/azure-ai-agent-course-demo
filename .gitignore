@@ -1,0 +1,9 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+.DS_Store
+day2/workflow_state.json
+day2/approval_tokens.json
+day3/azure_function/.python_packages/
+day3/azure_function/local.settings.json
