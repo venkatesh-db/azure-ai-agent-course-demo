@@ -23,7 +23,7 @@ cd day2
 | `tools_actions.py` | ✅ Ran live (via lab9 + lab10) | Write tools (`create_incident`, `request_service_restart`) enforcing idempotency-key + approval-token checks before doing anything |
 | `lab9_approval_workflow.py` | ✅ Ran live, all 6 scenarios passed | Happy path, duplicate-action prevention, token-replay rejection, scope-mismatch rejection, invalid-transition rejection, pause/resume across a simulated process restart |
 | `lab10_security_attacks.py` | ✅ Ran live | 5 social-engineering attacks against the agent ("I'm the VP", "skip approval, it's an emergency", a fabricated token, "use any token", a false-premise attack). All 5 refused at the model layer; the tool layer would have rejected them regardless (defense in depth) |
-| `azure_function/function_app.py` | ⚠️ Written, NOT deployed | Real Azure Functions HTTP-triggered implementation of the same two write tools, for the "Azure Functions as agent tools" module. `func` CLI isn't installed on this machine, so this is reviewable code, not a verified-working deployment. See the docstring in that file for the exact deploy command. |
+| `azure_function/function_app.py` | ✅ **Deployed and live-tested** | Real Azure Functions HTTP-triggered implementation of the same two write tools, live at `func-agent-demo-20674.azurewebsites.net`. Verified with real HTTP calls: approval-required rejection (403), successful creation (201/200), and idempotency-key replay returning the identical cached result instead of duplicating. |
 
 ## Run order
 

@@ -350,3 +350,65 @@ recur.
   and `eval-12` (or accepting the agent's judgment on genuinely gray-area
   questions) would be the next real step, not further code changes.
 - No teardown has been run — all resources are still live and billing.
+
+## Session 6: closed the two remaining gaps (Azure Function deploy, real CI)
+
+The user asked to finish both items flagged as "not done, by explicit
+scope" rather than leave them open.
+
+1. **Azure Functions Core Tools installed** via
+   `brew tap azure/functions && brew install azure-functions-core-tools@4`.
+   Brew required an explicit `brew trust --tap azure/functions` step first
+   (a local security wrapper blocking untrusted third-party taps by
+   default) — trusted the official Microsoft tap and proceeded.
+
+2. **Deployed `day2/azure_function/function_app.py`** to
+   `func-agent-demo-20674` via `func azure functionapp publish
+   func-agent-demo-20674 --python` (remote Oryx build on Azure, since
+   local Python is 3.14 vs the Function App's 3.11 — the CLI warned about
+   the mismatch but the remote build handled it correctly). Deployed
+   endpoints:
+   - `https://func-agent-demo-20674.azurewebsites.net/api/create-incident`
+   - `https://func-agent-demo-20674.azurewebsites.net/api/request-service-restart`
+
+   Tested live with real HTTP calls (function key from `az functionapp
+   keys list`), not just "deployment succeeded": confirmed 403
+   `approval_required` with no token, 201 on first create with a token,
+   200 `already_exists` with the identical cached ticket on a same-
+   idempotency-key retry (no duplicate), and the same approval/idempotency
+   behavior for `request_service_restart`. All matched the local
+   `tools_actions.py` behavior exactly.
+
+3. **Set up a real CI/CD pipeline** — scoped deliberately smaller than the
+   original `azure-pipelines.yml` reference: rather than create an Azure
+   AD app registration + federated (OIDC) credential + RBAC grants (needed
+   to give a CI runner live Azure access, a meaningfully bigger and more
+   sensitive step than wiring up a pipeline), built a GitHub Actions
+   workflow (`.github/workflows/ci.yml`) covering only what can run
+   without new Azure credentials: the deterministic scenario tests
+   (`lab9_approval_workflow.py`, `lab3_resilience.py` — no Azure calls) and
+   the release-gate check against the already-generated, committed
+   `eval_results.json`.
+
+   Initialized git, added a `.gitignore` (excluding `.env`, `.venv`, local
+   state files — confirmed no secrets staged before committing), created a
+   **private** GitHub repo
+   (`github.com/venkatesh-db/azure-ai-agent-course-demo`) via `gh repo
+   create`, and pushed. This triggered the workflow for real. Result:
+   - Test stage: ✅ passed (18s)
+   - Evaluation-gate stage: ❌ failed — **with the exact same numbers as
+     the local run** (100% grounded, 75% refusal), confirming this is a
+     genuinely working pipeline enforcing a real (currently failing) gate,
+     not a broken CI setup or a faked green checkmark.
+
+## Final state after Session 6
+
+Both previously-flagged gaps are closed:
+- Azure Function: deployed and live-tested, not just written.
+- CI/CD: a real, currently-running GitHub Actions pipeline, deliberately
+  scoped to avoid creating new Azure security principals without being
+  asked. Extending it to also run the live Azure evaluation in CI would
+  need that OIDC/service-principal setup as an explicit next step.
+
+Still open: Day 3's evaluation gate still fails on the refusal-rate metric
+(a labeling nuance, documented in Session 5); no teardown has been run.

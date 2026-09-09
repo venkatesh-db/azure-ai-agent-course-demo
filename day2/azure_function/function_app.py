@@ -7,17 +7,29 @@ time as an HTTP-triggered Function using the app's system-assigned managed
 identity for outbound auth (no secrets in config) — matching the
 "secretless configuration" topic from the syllabus.
 
-NOT YET DEPLOYED. `func` (Azure Functions Core Tools) isn't installed on
-this machine, so this code is written and reviewable but unverified by an
-actual run. To deploy and test for real:
+DEPLOYED AND VERIFIED LIVE at:
+    https://func-agent-demo-20674.azurewebsites.net/api/create-incident
+    https://func-agent-demo-20674.azurewebsites.net/api/request-service-restart
 
+Deployed with:
     brew tap azure/functions && brew install azure-functions-core-tools@4
     cd day2/azure_function
     func azure functionapp publish func-agent-demo-20674 --python
 
-Then update tools_actions.py's demo to call this HTTP endpoint (with a
-DefaultAzureCredential-issued token) instead of the in-process Python
-functions, to show tool execution actually crossing a network boundary.
+Verified with real HTTP calls (function-level auth key from
+`az functionapp keys list`):
+  - create_incident with no approval_token -> 403 approval_required
+  - create_incident with approval_token -> 201, ticket created
+  - create_incident retried with the SAME idempotency_key -> 200
+    already_exists, identical ticket returned (no duplicate created)
+  - request_service_restart with no approval_token -> 403 approval_required
+  - request_service_restart with approval_token -> 200 restart_initiated
+
+Not yet done: wiring tools_actions.py's demo to call this HTTP endpoint
+(with a DefaultAzureCredential-issued token) instead of the in-process
+Python functions, to show tool execution crossing a network boundary in
+the agent-driven demos (lab9/lab10). The endpoint itself is proven working
+independently of that.
 """
 import json
 import logging
