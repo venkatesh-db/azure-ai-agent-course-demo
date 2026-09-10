@@ -20,7 +20,7 @@ set -euo pipefail
 # ---- Config (edit these) ----------------------------------------------
 LOCATION="eastus2"                       # Foundry model availability varies by region
 RG="rg-ai-agent-demo"
-FOUNDRY_NAME="aif-agent-demo-11417"      # already created; reused to avoid orphaning a resource
+FOUNDRY_NAME="aif-agent-demo-$RANDOM"
 SEARCH_NAME="srch-agent-demo-$RANDOM"
 STORAGE_NAME="stagentdemo$RANDOM"        # must be globally unique, lowercase, no dashes
 FUNCTION_NAME="func-agent-demo-$RANDOM"
@@ -28,6 +28,8 @@ APPINSIGHTS_NAME="appi-agent-demo"
 MODEL_DEPLOYMENT_NAME="gpt-5-mini"
 MODEL_NAME="gpt-5-mini"
 MODEL_VERSION="2025-08-07"               # check `az cognitiveservices account list-models` if this fails
+EMBEDDING_DEPLOYMENT_NAME="text-embedding-3-small"
+EMBEDDING_MODEL_VERSION="1"              # check `az cognitiveservices account list-models` if this fails
 # -------------------------------------------------------------------------
 
 echo "Signed in as:"
@@ -61,6 +63,17 @@ az cognitiveservices account deployment create \
   --deployment-name "$MODEL_DEPLOYMENT_NAME" \
   --model-name "$MODEL_NAME" \
   --model-version "$MODEL_VERSION" \
+  --model-format OpenAI \
+  --sku-capacity 10 \
+  --sku-name "GlobalStandard" -o none
+
+echo "==> Deploying embedding model $EMBEDDING_DEPLOYMENT_NAME (needed for Day 1's RAG/vector-search labs)"
+az cognitiveservices account deployment create \
+  --name "$FOUNDRY_NAME" \
+  --resource-group "$RG" \
+  --deployment-name "$EMBEDDING_DEPLOYMENT_NAME" \
+  --model-name "$EMBEDDING_DEPLOYMENT_NAME" \
+  --model-version "$EMBEDDING_MODEL_VERSION" \
   --model-format OpenAI \
   --sku-capacity 10 \
   --sku-name "GlobalStandard" -o none
@@ -138,6 +151,7 @@ cat > .env <<EOF
 RESOURCE_GROUP=$RG
 FOUNDRY_ENDPOINT=$FOUNDRY_ENDPOINT
 MODEL_DEPLOYMENT_NAME=$MODEL_DEPLOYMENT_NAME
+EMBEDDING_DEPLOYMENT_NAME=$EMBEDDING_DEPLOYMENT_NAME
 SEARCH_ENDPOINT=$SEARCH_ENDPOINT
 SEARCH_SERVICE_NAME=$SEARCH_NAME
 FUNCTION_APP_NAME=$FUNCTION_NAME
